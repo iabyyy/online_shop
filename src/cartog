@@ -1,0 +1,147 @@
+import React, { useEffect, useState } from 'react';
+import { Button, Card, Col, Container, Row } from 'react-bootstrap';
+import axios from 'axios';
+
+const Cart = () => {
+    // Retrieve user info from localStorage
+    const user = JSON.parse(localStorage.getItem('user'));
+
+    // Function to get initial cart items from localStorage
+    const getInitialCart = () => {
+        try {
+            const stored = localStorage.getItem(`cartItems${user?.user_id}`);
+            const parsed = stored ? JSON.parse(stored) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    };
+
+    // Initialize cart items state
+    const [items, setItems] = useState(getInitialCart);
+
+    // Sync cart items to localStorage whenever items change
+    useEffect(() => {
+        if (user) {
+            localStorage.setItem(`cartItems${user.user_id}`, JSON.stringify(items));
+        }
+    }, [items, user]);
+
+    // Update quantity for an item in the cart
+    const handleUpdateQuantity = async (item, newQuantity) => {
+        if (newQuantity < 1) return;
+    
+        try {
+            // Send update to backend
+            await axios.patch(`http://localhost:8000/api/cart/${item.id}/`, {
+                quantity: newQuantity
+            });
+    
+            // Update local state and localStorage
+            const updatedItems = items.map(i =>
+                i.id === item.id ? { ...i, quantity: newQuantity } : i
+            );
+            setItems(updatedItems);
+        } catch (err) {
+            console.error('Failed to update quantity:', err);
+        }
+    };
+    
+
+    // Remove an item from the cart
+    const handleRemoveItem = async (itemId) => {
+        try {
+            await axios.delete(`http://localhost:8000/api/cart/${itemId}/`);
+            setItems(items.filter(item => item.id !== itemId));
+        } catch (err) {
+            console.error('Error removing item:', err);
+        }
+    };
+
+    // Calculate the total cost of items in the cart
+    const total = items.reduce((sum, item) => {
+        return sum + (item.price || 0) * (item.quantity || 1);
+    }, 0);
+
+    // Render UI if user is not logged in
+    if (!user) {
+        return (
+            <Container className="p-3">
+                <h3>Your Cart</h3>
+                <p>Please log in to view your cart.</p>
+            </Container>
+        );
+    }
+
+    return (
+        <Container className="p-3">
+            <h3>Your Cart</h3>
+            {items.length === 0 ? (
+                <p>Your cart is empty.</p>
+            ) : (
+                <Row>
+                    {items.map((item) => (
+                        <Col md={6} lg={4} key={item.id}>
+                            <Card className="mb-3">
+                                <Card.Body>
+                                    <Row>
+                                        <Col md={4}>
+                                            <Card.Img variant="top" src={item.image || 'placeholder.jpg'} />
+                                        </Col>
+                                        <Col md={8}>
+                                            <Card.Title>{item.name}</Card.Title>
+                                            <p>Price: ₹ {item.price}</p>
+                                            <p>Subtotal: ₹ {item.price * item.quantity}</p>
+                                            <div className="d-flex align-items-center">
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => handleUpdateQuantity(item, item.quantity - 1)}
+                                                    disabled={item.quantity <= 1}
+                                                >
+                                                    -
+                                                </Button>
+                                                <span className="mx-3">{item.quantity}</span>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => handleUpdateQuantity(item, item.quantity + 1)}
+                                                >
+                                                    +
+                                                </Button>
+                                            </div>
+                                            <Button
+                                                variant="danger"
+                                                className="mt-3"
+                                                onClick={() => handleRemoveItem(item.id)}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </Col>
+                                    </Row>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                    ))}
+                </Row>
+            )}
+
+            {items.length > 0 && (
+                <>
+                    <Row className="mt-3">
+                        <Col className="text-end">
+                            <h5>Total: ₹ {total}</h5>
+                        </Col>
+                    </Row>
+                    <Row className="mt-4">
+                        <Col className="text-end">
+                            <Button variant="success" size="lg">
+                                Proceed to Checkout
+                            </Button>
+                        </Col>
+                    </Row>
+                </>
+            )}
+        </Container>
+    );
+};
+
+export default Cart;

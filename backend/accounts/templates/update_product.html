@@ -1,0 +1,14 @@
+{% extends "adminpage.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+  
+
+  <form method="post" enctype="multipart/form-data">  <!-- Important: enctype for file uploads -->
+      {% csrf_token %}
+      
+      {{ form | crispy }}  <!-- Using crispy_forms to render the form -->
+
+      <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+{% endblock %}
