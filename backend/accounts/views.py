@@ -1,8 +1,8 @@
 from django.contrib.auth import authenticate, login
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from .models import Product, CartItem, BuyProduct
-from .serializers import ProductSerializer, CartItemSerializer,BuyProductSerializer
+from .models import Product, CartItem, OrderItem
+from .serializers import ProductSerializer, CartItemSerializer
 from rest_framework import viewsets
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view
+from accounts.models import Login
 
 
 
@@ -118,26 +119,19 @@ from .serializers import CartItemSerializer
 
 
 class AddToCartView(APIView):
-
-    # Handle POST request to add items to the cart
     def post(self, request):
         user_id = request.data.get('user_id')
         product_id = request.data.get('product_id')
         quantity = request.data.get('quantity', 1)
-
-        # Validate that user_id and product_id are provided
         if not user_id or not product_id:
             return Response({"error": "user_id and product_id are required."}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            # Fetch user and product from the database
             user = Login.objects.get(id=user_id)
             product = Product.objects.get(id=product_id)
         except Login.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
         except Product.DoesNotExist:
             return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Create a new cart item
         cart_item = CartItem.objects.create(user=user, product=product, quantity=quantity)
         serializer = CartItemSerializer(cart_item)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -221,26 +215,71 @@ class UserCart(APIView):
 
 
 
-class BuyProducts(APIView):
-    def post(self, request):
-        cart_id = request.data.get('cart_id')
-        phone_no = request.data.get('phone_no')
-        address = request.data.get('address')
-        if not cart_id :
-            return Response({"error": "cart_id , phone_no , address  required."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            cart = CartItem.objects.get(id=cart_id)
-            
-        
-        except CartItem.DoesNotExist:
-            return Response({"error": "not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Create a new cart item
-        buy_product = BuyProduct.objects.create(cart=cart,phone_no=phone_no,address=address)
-        serializer = BuyProductSerializer(buy_product)
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Login, Product, CartItem, Order, OrderItem
+from .serializers import OrderSerializer  # You would need to define this
+
+class OrderView(APIView):
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = Login.objects.get(id=user_id)
+        except Login.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        cart_items = CartItem.objects.filter(user=user)
+        if not cart_items.exists():
+            return Response({"error": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_price = sum(item.product.price * item.quantity for item in cart_items)
+        order = Order.objects.create(user=user, total_price=total_price)
+
+        for item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                product=item.product,
+                quantity=item.quantity,
+                price=item.product.price
+            )
+
+        # Clear the user's cart
+        cart_items.delete()
+
+        serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+    def get(self, request, id):  # accept the id here
+        try:
+            user = Login.objects.get(id=id)
+        except Login.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        orders = Order.objects.filter(user=user)
+        if not orders.exists():
+            return Response({"error": "No orders found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
+        ordered_products = []
+        for order in orders:
+            order_items = OrderItem.objects.filter(order=order)
+            for item in order_items:
+                ordered_products.append({
+                    "order_id": order.id,
+                    "product_id": item.product.id,
+                    "product_name": item.product.name,
+                    "product_image": request.build_absolute_uri(item.product.image.url),
+                    "quantity": item.quantity,
+                    "price": item.price,
+                    "order_date": order.created_at
+                })
+
+        return Response({"ordered_products": ordered_products}, status=status.HTTP_200_OK)
 
 
 

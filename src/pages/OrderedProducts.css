@@ -1,0 +1,35 @@
+/* OrderedProducts.css */
+.ordered-products-container {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.ordered-products-title {
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+}
+
+.ordered-products-table {
+    width: 100%;
+    border-collapse: collapse;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ordered-products-table th,
+.ordered-products-table td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+.ordered-products-table th {
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+.product-image {
+    width: 100px;
+    height: auto;
+    border-radius: 4px;
+}

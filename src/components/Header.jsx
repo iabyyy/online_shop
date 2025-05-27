@@ -57,6 +57,9 @@ function Header() {
             <Nav.Link as={Link} to="/listproducts" className='headernavlink'>
               LIST PRODUCT
             </Nav.Link>
+            <Nav.Link as={Link} to="/orderproducts" className='headernavlink'>
+              ORDERED PRODUCT
+            </Nav.Link>
           </Nav>
 
           {/* Right navigation links */}
